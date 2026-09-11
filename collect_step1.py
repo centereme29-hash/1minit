@@ -20,6 +20,7 @@ import argparse
 from bybit_client import BybitClient
 from config import DATA_DIR, DEFAULT_MINUTES, DEFAULT_SYMBOLS, FEATURES_DIR, RAW_DIR
 from features import REQUIRED_FIELDS, build_step1_dataset
+from store import append_csv
 from validate import validate_raw
 
 
@@ -63,8 +64,8 @@ def main(argv: list[str] | None = None) -> None:
 
         raw_path = RAW_DIR / f"{sym}_1m_raw.csv"
         feat_path = FEATURES_DIR / f"{sym}_1m_features.csv"
-        raw.to_csv(raw_path, index=False)
-        ds.to_csv(feat_path, index=False)
+        append_csv(raw_path, raw, key="timestamp_ms")
+        append_csv(feat_path, ds, key="timestamp_utc")
 
         report = validate_raw(raw)
         print(f"[{sym}] rows={report['rows']}  valid={report['ok']}")

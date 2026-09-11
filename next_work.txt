@@ -1,0 +1,363 @@
+================================================================================
+1MINIT — NEXT-WORK / HANDOFF PLAN (for a GPU PC)
+================================================================================
+
+PURPOSE
+  This file is a complete handoff. Copy the whole `1minit` folder to a machine
+  with an NVIDIA GPU, follow the setup below, and continue the remaining work
+  in the order given.
+
+--------------------------------------------------------------------------------
+1. CURRENT STATE (already built & working on the CPU PC)
+--------------------------------------------------------------------------------
+A full REST-based ML pipeline lives under `src/` (12 modules):
+
+    download_bybit.py   Phase 1-2   bulk 1m history (2 yrs DOGE/BTC, ~17 mo XAUT)
+    clean_data.py       Phase 3     dedupe + OHLC sanity + gap detection (no interpolation)
+    synchronize.py      Phase 4     shared UTC minute index (wide table)
+    features.py         Phase 5-8   53 features (technical + cross-asset + multi-timeframe)
+    targets.py          Phase 9     volatility-normalized UP/DOWN/NO-MOVE (5m, 0.3 ATR)
+    dataset.py          Phase 11    60/20/20 chronological split
+    baselines.py        Phase 12    XGBoost / LightGBM / MLP
+    ensemble.py         Phase 21    weighted probability ensemble
+    backtest.py         Phase 15/23 fees + slippage + confidence gate
+    evolution.py        Phase 13-18 CPU evolution (LightGBM hyperparams only)
+    live.py             Phase 17/24 live inference stub (REST, one-bar)
+    pipeline.py         orchestrator
+
+Data on disk (data/raw/<SYMBOL>/<SYMBOL>_1m.csv):
+    DOGEUSDT  1,051,200 candles  (2 years)
+    BTCUSDT   1,051,200 candles  (2 years)
+    XAUTUSDT    745,620 candles  (~17 months, listed 2025-04-11)
+
+--------------------------------------------------------------------------------
+2. KEY FINDING (READ THIS FIRST)
+--------------------------------------------------------------------------------
+1-minute candle features -> 5-minute DOGE direction gives only:
+
+    XGBoost   45.55% test acc   macro-F1 0.322
+    LightGBM  45.63% test acc   macro-F1 0.323
+    MLP       45.78% test acc   macro-F1 0.324
+    majority-class baseline ~ 42.7%
+
+Backtest loses ~100% at low confidence; at a 0.6+ confidence gate there are
+almost no trades. Net of the 0.24%/trade cost, candle-only features are NOT
+tradable. CONCLUSION: the predictive signal for small movements lives in
+MICROSTRUCTURE (order book / trade flow), not candles. Build that first (7A).
+
+--------------------------------------------------------------------------------
+3. ENVIRONMENT SETUP (GPU PC)
+--------------------------------------------------------------------------------
+Create a venv and install a CUDA-enabled PyTorch matching your driver/CUDA.
+
+  # Windows
+  python -m venv crypto_ai
+  crypto_ai\Scripts\activate
+
+  # Linux/macOS
+  python -m venv crypto_ai
+  source crypto_ai/bin/activate
+
+  # PyTorch with CUDA (pick the wheel index for your CUDA: cu118 / cu121 / cu124)
+  pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+  # everything else
+  pip install pandas numpy scikit-learn scipy pyarrow tqdm matplotlib seaborn pyyaml joblib
+  pip install xgboost lightgbm plotly
+
+Verify GPU:
+
+  python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+
+You want:
+  True
+  NVIDIA ... (e.g. RTX 4090 / A100)
+
+--------------------------------------------------------------------------------
+4. MOVING THE PROJECT
+--------------------------------------------------------------------------------
+1) Copy the whole `1minit` folder to the GPU PC.
+2) Reinstall deps (section 3).
+3) Either copy `data/` too, or re-download:
+       python src/download_bybit.py --symbols DOGEUSDT BTCUSDT XAUTUSDT --days 730
+4) Rebuild everything:
+       python src/pipeline.py
+
+--------------------------------------------------------------------------------
+5. RUNNING WHAT EXISTS
+--------------------------------------------------------------------------------
+  python src/pipeline.py                                   # clean->...->backtest
+  python src/pipeline.py --with-download --days 730        # + full download
+  python src/live.py                                       # one-bar live prediction
+  python src/evolution.py --population 12 --generations 5  # CPU LightGBM search
+
+All scripts are run from the project root, e.g.  python src/features.py
+
+
+--------------------------------------------------------------------------------
+6. REMAINING WORK (IN ORDER)
+--------------------------------------------------------------------------------
+
+6A. MICROSTRUCTURE COLLECTOR (WebSocket)  <-- HIGHEST PRIORITY, CPU-OK
+--------------------------------------------------------------------------------
+Build `src/microstructure.py`. Stream from Bybit V5 public WebSocket:
+
+    wss://stream.bybit.com/v5/public/spot
+
+Topics per symbol (DOGEUSDT / BTCUSDT / XAUTUSDT):
+    orderbook.1.<SYMBOL>    level-1: best bid/ask + sizes
+    orderbook.50.<SYMBOL>   depth (50 levels) if you want a real imbalance
+    publicTrade.<SYMBOL>    each public trade (price, side, size, ts)
+
+Aggregate to 1-minute bars and store to:
+    data/microstructure/<SYMBOL>_1m_micro.csv
+
+Columns to compute (per minute):
+    spread            = ask - bid
+    rel_spread        = spread / mid
+    mid_price         = (bid + ask) / 2
+    ob_imbalance      = (bid_vol - ask_vol) / (bid_vol + ask_vol)   # -1..+1
+    buy_volume        = sum(buy-side trade size)
+    sell_volume       = sum(sell-side trade size)
+    trade_count
+    large_trade_count = trades > k * rolling_median(size)
+    vwap
+    trade_imbalance   = (buy_vol - sell_vol) / (buy_vol + sell_vol)
+
+Implementation notes:
+  - Use `websocket-client` or `websockets` lib (pip install websockets).
+  - Subscribe to all 3 symbols in ONE connection (comma-separated topics).
+  - Keep the loop resilient (auto-reconnect, ping/pong).
+  - Save a partial CSV every minute so a crash never loses more than a minute.
+  - Run it for several days BEFORE retraining; you need a real micro history.
+
+Then extend `src/features.py` to merge micro columns into the feature matrix
+(synchronized on the same UTC minute index) and retrain the baselines.
+
+--------------------------------------------------------------------------------
+6B. WALK-FORWARD VALIDATION  (Phase 20)
+--------------------------------------------------------------------------------
+Build `src/walk_forward.py`:
+  - Rolling windows: train Jan->Jun, validate Jul; train Jan->Jul, validate Aug; ...
+  - Report per-window accuracy/F1/PnL and an aggregate summary.
+  - This measures regime stability, which matters more than one 80/20 split.
+
+--------------------------------------------------------------------------------
+6C. VALIDATION-B REGIME  (Phase 19)
+--------------------------------------------------------------------------------
+Split into TRAIN / VALIDATION-A / VALIDATION-B / FINAL TEST.
+The evolution loop scores on A; periodically re-verify survivors on B to catch
+lucky overfitting after thousands of experiments.
+
+--------------------------------------------------------------------------------
+6D. MULTI-HEAD TARGETS  (Phase 10)
+--------------------------------------------------------------------------------
+Output heads (instead of only 3-class direction):
+    future_ret_1..future_ret_5   (regression, MSE/Huber)
+    direction P(UP/DOWN/NOMOVE)  (cross-entropy)
+    future_vol                   (regression)
+    future_max_up / future_max_down (regression)
+Loss = weighted sum. The target columns already exist in data/features/targets.csv;
+the current models only use `label`. Wire the extra heads into the model + trainer.
+
+--------------------------------------------------------------------------------
+6E. MULTI-TIMEFRAME TRANSFORMER  (Phase 8 + 13)
+--------------------------------------------------------------------------------
+Three parallel branches:
+    1m  x 30   (fast)
+    5m  x 36   (medium)
+    15m x 32   (slow)
+Each branch: positional encoding -> TransformerEncoder (or GRU) -> pooling.
+Then cross-asset attention (DOGE / BTC / XAUT), a temporal transformer, and the
+multi-head output from 6D, ending in a confidence gate.
+
+Suggested starting hyperparams (search space for evolution):
+    d_model    : 256 / 512 / 768 / 1024
+    layers     : 4 / 6 / 8 / 10 / 12
+    heads      : 4 / 8 / 12 / 16
+    dropout    : 0.1 / 0.15 / 0.2 / 0.3
+    lr         : 1e-4 / 5e-5 / 1e-5
+    weight_decay: 0.0 / 0.01 / 0.02
+    seq_len    : 30 / 60 / 90
+    feature_subset: random subsets of the feature columns
+    loss_weights: random (direction vs returns vs vol)
+
+
+--------------------------------------------------------------------------------
+6F. EVOLUTION ENGINE  (Phases 13-18)
+--------------------------------------------------------------------------------
+Build `src/evolution_gpu.py` (or extend evolution.py to the transformer).
+
+Do NOT start with 100 x 200M models. Start small and scale the winners:
+
+    Generation 0 : 100 models, 20-80M params each
+    -> train on TRAIN, score on VALIDATION-A
+    -> keep TOP 10
+    Generation 1..N : mutate + crossover survivors -> 100 children
+    -> repeat 20-50 generations
+    -> scale the best architectures to 100-250M params
+    -> final ensemble
+
+Randomize per individual (genes):
+    d_model, layers, heads, dropout, lr, weight_decay, seq_len,
+    feature_subset, loss_weights, optimizer
+
+Scoring (tune weights; lean on net-of-fee performance):
+    score = 0.20 * direction_acc
+          + 0.15 * f1
+          + 0.15 * precision
+          + 0.15 * return_mae (neg)
+          + 0.20 * trading_sim_pnl
+          + 0.15 * calibration
+
+DIVERSITY (critical): keep top-K, but drop near-duplicates — measure pairwise
+prediction correlation on a held-out slice; if corr > 0.9, keep only one.
+
+Mutation: perturb 1-3 genes (e.g. layers 8->10, lr *0.75, dropout +/-0.05).
+Crossover: swap genes between two parents (d_model from A, layers from B).
+
+Log every individual to results/generation_NNN.csv:
+    model_id, generation, genes..., val_loss, acc, precision, recall, f1,
+    mae, simulated_return, profit_factor, drawdown, diversity_flag
+
+Never let the evolution loop touch FINAL TEST.
+
+--------------------------------------------------------------------------------
+6G. ENSEMBLE + CONFIDENCE GATE  (Phases 21-22)
+--------------------------------------------------------------------------------
+After evolution, pick 5-10 strong AND diverse models. Final prediction =
+weighted average of their probabilities (weights from val performance).
+Apply a confidence gate: only emit LONG/SHORT when P(class) >= threshold
+(start 0.7; tune on validation). Otherwise NO TRADE.
+
+--------------------------------------------------------------------------------
+6H. TRADING SIMULATOR  (Phase 23)
+--------------------------------------------------------------------------------
+Extend `src/backtest.py`:
+    - capital: $100 / $500 / $1000
+    - fee 0.1% per side + slippage 0.02%
+    - position sizing (fraction of equity)
+    - holding period from the signal
+Metrics: total return, win rate, profit factor, max drawdown, Sharpe,
+avg trade, avg holding time, number of trades, fees paid, slippage.
+
+--------------------------------------------------------------------------------
+6I. PAPER TRADING  (Phase 24)
+--------------------------------------------------------------------------------
+Build `src/paper.py`:
+    Bybit WebSocket (candles + orderbook + trades) -> live features
+    -> ensemble -> prediction -> confidence gate -> LONG / SHORT / NO TRADE
+    -> simulated paper PnL (log to logs/paper.csv).
+Run for several weeks across different market conditions before real capital.
+
+--------------------------------------------------------------------------------
+6J. LIVE INFERENCE  (Phase 25)
+--------------------------------------------------------------------------------
+Final architecture:
+                    BYBIT
+                      |
+         REST API  +  WebSocket (kline / orderbook / trades)
+                      |
+                Feature Engine (microstructure + candles + cross-asset)
+                      |
+                Multi-timeframe encoder (1m/5m/15m)
+                      |
+                5-10 model ensemble
+                      |
+                Confidence gate
+                      |
+              TRADE  /  NO TRADE
+
+
+--------------------------------------------------------------------------------
+7. SUGGESTED config.yaml (create at project root)
+--------------------------------------------------------------------------------
+  data:
+    symbols: [DOGEUSDT, BTCUSDT, XAUTUSDT]
+    interval: "1"
+    raw_dir: data/raw
+    micro_dir: data/microstructure
+    features_dir: data/features
+
+  target:
+    horizon: 5                # minutes ahead
+    threshold_atr: 0.3        # UP/DOWN/NO-MOVE threshold
+    returns: [1, 2, 3, 5, 10]
+
+  split:
+    train: 0.6
+    val_a: 0.2
+    val_b: 0.1
+    test: 0.1
+
+  model:
+    d_model: 512
+    layers: 8
+    heads: 8
+    dropout: 0.15
+    lr: 1e-4
+    weight_decay: 0.01
+    seq_len: 30
+    branches: { "1m": 30, "5m": 36, "15m": 32 }
+
+  evolution:
+    population: 100
+    generations: 30
+    topk: 10
+    diversity_corr_threshold: 0.9
+    score_weights: {acc: 0.2, f1: 0.15, precision: 0.15, return: 0.15, pnl: 0.2, calibration: 0.15}
+
+  trading:
+    fee: 0.001
+    slippage: 0.0002
+    confidence_gate: 0.7
+
+--------------------------------------------------------------------------------
+8. DIRECTORY LAYOUT
+--------------------------------------------------------------------------------
+  1minit/
+    config.yaml                  (to create)
+    next_work.txt                (this file)
+    src/
+      download_bybit.py  clean_data.py  synchronize.py  features.py  targets.py
+      dataset.py  baselines.py  ensemble.py  backtest.py  evolution.py  live.py
+      pipeline.py
+      microstructure.py          (TO BUILD - 6A)
+      walk_forward.py            (TO BUILD - 6B)
+      model.py / train.py        (TO BUILD - transformer + trainer)
+      evolution_gpu.py           (TO BUILD - 6F)
+      paper.py                   (TO BUILD - 6I)
+    data/ raw/ cleaned/ synchronized/ features/ microstructure/
+    models/  generations/  results/  logs/  notebooks/  configs/
+
+--------------------------------------------------------------------------------
+9. PITFALLS / RULES
+--------------------------------------------------------------------------------
+  - The FINAL TEST set must stay untouched by evolution and hyperparameter search.
+  - 95% accuracy is a red flag -> check leakage (lookahead, feature/target overlap).
+  - Do NOT interpolate missing candles blindly (market closed vs collection failed).
+  - Score models on NET return after fees/slippage, not raw accuracy.
+  - Prefer diverse top models over correlated duplicates.
+  - Start small (20-80M), scale winners (100-250M) only after signal is proven.
+  - The first MLP baseline took 23 min on CPU; on GPU this becomes seconds/minutes,
+    which is exactly why the transformer + evolution phases move to a GPU PC.
+
+--------------------------------------------------------------------------------
+10. DEVELOPMENT ORDER (condensed)
+--------------------------------------------------------------------------------
+  1. microstructure.py (6A)  + feature merge + retrain baselines   [do first]
+  2. walk_forward.py (6B)
+  3. multi-head targets (6D)
+  4. multi-timeframe transformer (6E)
+  5. evolution engine on GPU (6F)
+  6. ensemble + confidence gate (6G)
+  7. trading simulator (6H)
+  8. paper trading (6I)
+  9. live inference (6J)
+
+================================================================================
+END
+================================================================================
+
+
+

@@ -4,9 +4,14 @@ Live data from Bybit (1-minute candles) for DOGEUSDT (main panel) plus BTCUSDT
 and XAUTUSDT (comparison), rendered like the Bybit app with every traditional
 mathematical trend indicator overlaid:
 
-    price + EMA5/10/20/50/100 + SMA20 + Bollinger Bands,
-    volume + OBV, RSI, MACD (+signal +histogram), Stochastic %K/%D, ATR,
-    BTC vs XAUT (and DOGE) normalised comparison panel.
+    price + EMA5/10/20/50/100 + SMA20 + Bollinger Bands + Support/Resistance,
+    BUY/SELL signal markers, volume + OBV, RSI, MACD (+signal +histogram),
+    Stochastic %K/%D, ATR, liquidity, BTC vs XAUT normalised comparison panel.
+
+All timestamps are shown/stored as a single **UTC** column (no duplicated time).
+Live runs append new candles to the CSV files instead of overwriting, and the
+complete enriched dataset (indicators + liquidity + support/resistance +
+buy/sell signals) is also written to ``data/analysis/<SYMBOL>_1m_analysis.csv``.
 
 The HTML overlay shows a real **UTC clock** and a countdown to the next
 1-minute candle close (UTC-based, not a browser-refresh timer).
@@ -14,7 +19,7 @@ The HTML overlay shows a real **UTC clock** and a countdown to the next
 Usage::
 
     python chart.py                      # live DOGEUSDT + BTC vs XAUT
-    python chart.py --live               # loop: fetch+store+chart, UTC-aligned
+    python chart.py --live               # loop: fetch+append+chart, UTC-aligned
     python chart.py --symbol BTCUSDT     # change the main symbol
     python chart.py --compare XAUTUSDT SOLUSDT  # custom comparison symbols
     python chart.py --minutes 500 --no-open
@@ -33,9 +38,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from bybit_client import BybitClient
-from config import BASE_DIR, FEATURES_DIR, RAW_DIR, PRIMARY_SYMBOLS
+from config import ANALYSIS_DIR, BASE_DIR, FEATURES_DIR, RAW_DIR, PRIMARY_SYMBOLS
 from features import add_emas, build_step1_dataset
 from indicators import add_indicators
+from signals import add_analysis
+from store import append_csv
 
 # --- Bybit-app colour palette ------------------------------------------------
 BG = "#0b0e11"          # main background
@@ -56,6 +63,14 @@ EMA_COLORS = {
 # Main symbol is the big candlestick panel; the others are overlaid for comparison.
 MAIN_SYMBOL = PRIMARY_SYMBOLS[0]                       # DOGEUSDT
 CMP_COLORS = {"BTCUSDT": "#f7931a", "XAUTUSDT": "#c0c0c0", "DOGEUSDT": "#bc8d02"}
+
+# Extra layers: liquidity, support/resistance and buy/sell signals.
+LIQUIDITY_COLOR = "#00c3ff"
+LIQUIDITY_MA_COLOR = "#f0b90b"
+SUPPORT_COLOR = "#0ecb81"
+RESIST_COLOR = "#f6465d"
+BUY_COLOR = "#0ecb81"
+SELL_COLOR = "#f6465d"
 
 INDICATORS_DIR = BASE_DIR / "data" / "indicators"
 
@@ -85,26 +100,54 @@ def store_data(symbol: str, raw: pd.DataFrame) -> tuple[Path, Path]:
     feat_path = FEATURES_DIR / f"{symbol}_1m_features.csv"
     raw_path.parent.mkdir(parents=True, exist_ok=True)
     feat_path.parent.mkdir(parents=True, exist_ok=True)
-    raw.to_csv(raw_path, index=False)
-    ds.to_csv(feat_path, index=False)
+    append_csv(raw_path, raw, key="timestamp_ms")
+    append_csv(feat_path, ds, key="timestamp_utc")
     return raw_path, feat_path
 
 
 def store_indicators(symbol: str, view: pd.DataFrame) -> Path:
-    """Persist all candles + their indicator columns (``data/indicators``)."""
+    """Persist all candles + their indicator columns (``data/indicators``).
+
+    Stored with a single UTC time column (``timestamp_utc``) — the raw
+    ``timestamp_ms`` and the internal ``time`` column are dropped.
+    """
     out = view.copy()
     out["timestamp_utc"] = pd.to_datetime(out["time"], utc=True)
+    out = out.drop(columns=["time", "timestamp_ms"], errors="ignore")
+    cols = ["timestamp_utc"] + [c for c in out.columns if c != "timestamp_utc"]
     path = INDICATORS_DIR / f"{symbol}_1m_indicators.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
-    out.drop(columns=["time"]).to_csv(path, index=False)
+    append_csv(path, out[cols], key="timestamp_utc")
+    return path
+
+
+def store_analysis(symbol: str, view: pd.DataFrame) -> Path:
+    """Persist the complete enriched dataset to ``data/analysis``.
+
+    This is the "other file" that holds everything in one place: a single UTC
+    timestamp, OHLCV + turnover, EMAs, traditional indicators, liquidity,
+    support/resistance and buy/sell signals.
+    """
+    out = view.copy()
+    out["timestamp_utc"] = pd.to_datetime(out["time"], utc=True)
+    out = out.drop(columns=["time", "timestamp_ms"], errors="ignore")
+    cols = ["timestamp_utc"] + [c for c in out.columns if c != "timestamp_utc"]
+    path = ANALYSIS_DIR / f"{symbol}_1m_analysis.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    append_csv(path, out[cols], key="timestamp_utc")
     return path
 
 
 def to_view(raw: pd.DataFrame, indicators: bool = False) -> pd.DataFrame:
-    """Add EMA columns, a display ``time`` column and (optionally) indicators."""
+    """Add EMA columns, a display ``time`` column and (optionally) indicators.
+
+    When ``indicators`` is true (the main symbol) this also adds liquidity,
+    support/resistance and buy/sell signals so the chart can plot everything.
+    """
     df = add_emas(raw)
     if indicators:
         df = add_indicators(df)
+        df = add_analysis(df)
     df["time"] = pd.to_datetime(df["timestamp_ms"], unit="ms", utc=True)
     return df.sort_values("time").reset_index(drop=True)
 
@@ -133,6 +176,8 @@ def load_data(symbol: str, file_path: str | None, minutes: int) -> pd.DataFrame:
             df = add_emas(df)
         if "RSI14" not in df.columns:
             df = add_indicators(df)
+        if "support" not in df.columns:
+            df = add_analysis(df)
 
         return df.sort_values("time").reset_index(drop=True)
 
@@ -175,11 +220,28 @@ def indicator_snapshot(view: pd.DataFrame) -> str:
         val("STOCH_K"),
         val("STOCH_D"),
         val("ATR14", ".6f"),
+        val("Support", ".6f"),
+        val("Resistance", ".6f"),
     ]
     obv_v = last.get("OBV")
     if obv_v is not None and not (isinstance(obv_v, float) and np.isnan(obv_v)):
         parts.append(f"OBV {obv_v:,.0f}")
+    liq_v = last.get("liquidity")
+    if liq_v is not None and not (isinstance(liq_v, float) and np.isnan(liq_v)):
+        parts.append(f"Liquidity {liq_v:,.0f}")
+    sig_v = last.get("signal")
+    if sig_v == 1:
+        parts.append("SIGNAL: BUY ▲")
+    elif sig_v == -1:
+        parts.append("SIGNAL: SELL ▼")
     return "  ·  ".join(parts)
+
+
+def _as_bool(series: pd.Series) -> pd.Series:
+    """Coerce a bool-or-string column (CSV round-trip safe) to boolean."""
+    if pd.api.types.is_bool_dtype(series):
+        return series.fillna(False)
+    return series.astype(str).str.strip().str.lower().isin(["true", "1", "yes"])
 
 
 def build_figure(
@@ -199,9 +261,9 @@ def build_figure(
     x = main["time"]
 
     fig = make_subplots(
-        rows=7, cols=1, shared_xaxes=True,
-        specs=[[{}], [{"secondary_y": True}], [{}], [{}], [{}], [{}], [{}]],
-        row_heights=[0.30, 0.12, 0.10, 0.12, 0.10, 0.07, 0.17],
+        rows=8, cols=1, shared_xaxes=True,
+        specs=[[{}], [{"secondary_y": True}], [{}], [{}], [{}], [{}], [{}], [{}]],
+        row_heights=[0.24, 0.09, 0.08, 0.10, 0.08, 0.06, 0.15, 0.12],
         vertical_spacing=0.02,
     )
 
@@ -243,6 +305,46 @@ def build_figure(
                        line=dict(color="rgba(14,203,129,0.0)", width=0),
                        fill="tonexty", fillcolor="rgba(14,203,129,0.06)",
                        showlegend=False, hoverinfo="skip"),
+            row=1, col=1,
+        )
+
+    # ----- Support / resistance bands --------------------------------------------
+    if "support" in main.columns:
+        fig.add_trace(
+            go.Scatter(x=x, y=main["support"], name="Support", mode="lines",
+                       line=dict(color=SUPPORT_COLOR, width=1.4, dash="dot"),
+                       hovertemplate="Support: %{y:.6f}<extra></extra>"),
+            row=1, col=1,
+        )
+    if "resistance" in main.columns:
+        fig.add_trace(
+            go.Scatter(x=x, y=main["resistance"], name="Resistance", mode="lines",
+                       line=dict(color=RESIST_COLOR, width=1.4, dash="dot"),
+                       hovertemplate="Resistance: %{y:.6f}<extra></extra>"),
+            row=1, col=1,
+        )
+
+    # ----- Buy / sell markers on the price panel ---------------------------------
+    buy_mask = _as_bool(main["buy_signal"]) if "buy_signal" in main.columns else pd.Series(False, index=main.index)
+    sell_mask = _as_bool(main["sell_signal"]) if "sell_signal" in main.columns else pd.Series(False, index=main.index)
+    buys = main[buy_mask]
+    sells = main[sell_mask]
+    if not buys.empty:
+        fig.add_trace(
+            go.Scatter(x=buys["time"], y=buys["low"] * 0.9995, mode="markers",
+                       name="BUY", text=buys.get("signal_reason", ""),
+                       marker=dict(symbol="triangle-up", size=12, color=BUY_COLOR,
+                                   line=dict(width=1, color="#ffffff")),
+                       hovertemplate="BUY @ %{y:.6f}<extra>%{text}</extra>"),
+            row=1, col=1,
+        )
+    if not sells.empty:
+        fig.add_trace(
+            go.Scatter(x=sells["time"], y=sells["high"] * 1.0005, mode="markers",
+                       name="SELL", text=sells.get("signal_reason", ""),
+                       marker=dict(symbol="triangle-down", size=12, color=SELL_COLOR,
+                                   line=dict(width=1, color="#ffffff")),
+                       hovertemplate="SELL @ %{y:.6f}<extra>%{text}</extra>"),
             row=1, col=1,
         )
 
@@ -344,6 +446,22 @@ def build_figure(
         )
     fig.add_hline(y=0, line=dict(color="rgba(128,128,128,0.4)"), row=7, col=1)
 
+    # ----- Row 8: Liquidity (turnover + rolling mean) ------------------------------
+    if "liquidity" in main.columns:
+        fig.add_trace(
+            go.Scatter(x=x, y=main["liquidity"], name="Liquidity", mode="lines",
+                       line=dict(color=LIQUIDITY_COLOR, width=1.2),
+                       hovertemplate="Liquidity: %{y:,.2f}<extra></extra>"),
+            row=8, col=1,
+        )
+    if "liquidity_ma" in main.columns:
+        fig.add_trace(
+            go.Scatter(x=x, y=main["liquidity_ma"], name="Liquidity MA20", mode="lines",
+                       line=dict(color=LIQUIDITY_MA_COLOR, width=1.2),
+                       hovertemplate="Liq MA: %{y:,.2f}<extra></extra>"),
+            row=8, col=1,
+        )
+
     # ----- Layout (Bybit dark theme) ------------------------------------------------
     fig.update_layout(
         title=dict(
@@ -352,14 +470,14 @@ def build_figure(
         ),
         paper_bgcolor=BG, plot_bgcolor=PANEL,
         font=dict(color=TEXT, size=11),
-        height=1200,
+        height=1400,
         margin=dict(l=10, r=10, t=60, b=10),
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(size=10)),
         showlegend=True,
     )
 
-    for i in range(1, 8):
+    for i in range(1, 9):
         fig.update_xaxes(gridcolor=GRID, showline=False, type="date", row=i, col=1)
         fig.update_yaxes(gridcolor=GRID, showline=False, zeroline=False, row=i, col=1)
 
@@ -370,6 +488,7 @@ def build_figure(
     fig.update_yaxes(title_text="STOCH", row=5, col=1, range=[0, 100])
     fig.update_yaxes(title_text="ATR", row=6, col=1)
     fig.update_yaxes(title_text="Δ%", row=7, col=1)
+    fig.update_yaxes(title_text="Liquidity", row=8, col=1)
 
     return fig
 
@@ -485,6 +604,7 @@ def main(argv: list[str] | None = None) -> None:
                     views[sym] = view
                     if sym == main_sym:
                         stored.append(store_indicators(sym, view))
+                        stored.append(store_analysis(sym, view))
 
             fig = build_figure(views, args.minutes, main_sym)
             last_ts = views[main_sym]["time"].iloc[-1]

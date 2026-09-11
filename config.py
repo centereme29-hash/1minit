@@ -28,6 +28,12 @@ DEFAULT_SYMBOLS = PRIMARY_SYMBOLS + SUPPORT_SYMBOLS
 # ---------------------------------------------------------------------------
 EMA_SPANS = (5, 10, 20, 50, 100)
 
+# Signal / analysis parameters (used by signals.py)
+SUPPORT_WINDOW = 50       # rolling candles for dynamic support/resistance
+LIQUIDITY_WINDOW = 20     # rolling candles for the liquidity moving average
+SIGNAL_FAST = 5           # fast EMA for cross signals
+SIGNAL_SLOW = 20          # slow EMA for cross signals
+
 # ---------------------------------------------------------------------------
 # Output directories
 # ---------------------------------------------------------------------------
@@ -35,6 +41,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"            # raw OHLCV + turnover (no derived fields)
 FEATURES_DIR = DATA_DIR / "features"  # the 12-field Step 1 dataset
+ANALYSIS_DIR = DATA_DIR / "analysis"  # full enriched dataset + liquidity/support/signals
 
 # ---------------------------------------------------------------------------
 # How many 1-minute candles to fetch by default.

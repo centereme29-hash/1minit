@@ -1,0 +1,51 @@
+# ---- Python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ---- Virtual environments ------------------------------------------------
+.venv/
+venv/
+env/
+crypto_ai/
+ENV/
+
+# ---- Data (large / regenerable via src/download_bybit.py) -----------------
+data/raw/
+data/cleaned/
+data/synchronized/
+data/features/*.csv
+data/indicators/
+data/analysis/
+data/*.html
+
+# ---- Model artifacts (large binaries) ------------------------------------
+models/
+generations/
+
+# ---- Generated results (keep only the hand-written summary) ---------------
+results/*.csv
+results/*.html
+results/*.json
+logs/
+
+# ---- Notebooks -----------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# ---- IDE / OS ------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Environment / secrets ------------------------------------------------
+.env
+*.env
+secrets.yaml
+config.local.yaml
