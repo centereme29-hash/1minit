@@ -1,0 +1,13 @@
+﻿
+
+ProcessId   : 8004
+CommandLine : "C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" c:\Users\user\Desktop\1minit\_mon_loop.py 
+
+ProcessId   : 9296
+CommandLine : "C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" c:\Users\user\Desktop\1minit\src\pipeline.py
+
+ProcessId   : 10328
+CommandLine : C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe C:\Users\user\Desktop\1minit\src\features.py
+
+
+

@@ -1,0 +1,8 @@
+CommandLine                                                                                                    ProcessId  
+
+"C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" c:\Users\user\Desktop\1minit\_procs_wmi.py  1284       
+
+
+
+
+STDERR:

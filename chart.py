@@ -580,6 +580,8 @@ def main(argv: list[str] | None = None) -> None:
                         help="max seconds between fetches in --live mode (default 60)")
     parser.add_argument("--no-open", action="store_true",
                         help="write the HTML without opening the browser")
+    parser.add_argument("--png", action="store_true",
+                        help="also write a static PNG snapshot of the chart (requires kaleido)")
     args = parser.parse_args(argv)
 
     main_sym = args.symbol.upper()
@@ -611,6 +613,11 @@ def main(argv: list[str] | None = None) -> None:
             snap = indicator_snapshot(views[main_sym].tail(args.minutes))
             write_chart_html(fig, out_path, refresh_seconds=refresh,
                              last_ts=last_ts, indicators=snap)
+
+            if args.png:
+                png_path = out_path.with_suffix(".png")
+                fig.write_image(str(png_path), width=1600, height=900, scale=2)
+                print(f"    chart image saved -> {png_path}")
 
             print(f"[{last_ts:%Y-%m-%d %H:%M:%S} UTC] chart saved -> {out_path} "
                   f"({len(views[main_sym].tail(args.minutes))} candles, "

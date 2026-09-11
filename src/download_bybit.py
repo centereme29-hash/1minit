@@ -22,6 +22,12 @@ import sys
 import time
 from pathlib import Path
 
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import pandas as pd
 
 # Allow importing the Bybit client living in the project root.

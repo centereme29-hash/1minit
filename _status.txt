@@ -1,0 +1,14 @@
+checked 2026-09-11 08:02:17Z
+STATUS: DONE (marker present)
+stage: =
+current symbol: XAUTUSDT  page: 700
+saved: BTCUSDT=1051200, XAUTUSDT=745789
+--- raw csv rows ---
+BTCUSDT_1m.csv: 1051200 rows
+DOGEUSDT_1m.csv: 1051200 rows
+XAUTUSDT_1m.csv: 745789 rows
+--- models ---
+lightgbm.joblib: 738356 bytes
+mlp.pt: 322848 bytes
+mlp_scaler.joblib: 1839 bytes
+xgboost.joblib: 1974108 bytes

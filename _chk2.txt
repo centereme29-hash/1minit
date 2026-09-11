@@ -1,0 +1,15 @@
+﻿TIME 09/11/2026 13:47:39
+MARKER ABSENT
+--- procs ---
+
+
+ProcessId   : 6628
+CommandLine : "C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" 
+              c:\Users\user\Desktop\1minit\src\download_bybit.py --symbols BTCUSDT --days 730
+
+ProcessId   : 6860
+CommandLine : "C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" 
+              c:\Users\user\Desktop\1minit\_monitor_loop.py 
+
+
+

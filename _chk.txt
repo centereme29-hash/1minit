@@ -1,0 +1,14 @@
+﻿
+Name              Length LastWriteTime       
+----              ------ -------------       
+lightgbm.joblib    12404 9/11/2026 1:25:53 PM
+mlp.pt            322848 9/11/2026 1:25:54 PM
+mlp_scaler.joblib   1839 9/11/2026 1:25:54 PM
+xgboost.joblib    136281 9/11/2026 1:25:53 PM
+
+
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command "try { . \"c:\Program Files\Microsoft VS Code\08d4889f9e\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1\" } catch {}"
+"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File c:\Users\user\Desktop\1minit\_run_all.ps1 
+"C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" c:\Users\user\Desktop\1minit\src\download_bybit.py --symbols BTCUSDT --days 730
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command "try { . \"c:\Program Files\Microsoft VS Code\08d4889f9e\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1\" } catch {}"
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -noexit -command "try { . \"c:\Program Files\Microsoft VS Code\08d4889f9e\resources\app\out\vs\workbench\contrib\terminal\common\scripts\shellIntegration.ps1\" } catch {}"

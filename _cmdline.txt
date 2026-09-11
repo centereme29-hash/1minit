@@ -1,0 +1,7 @@
+RC=0
+out_len=118
+11196
+"C:\Users\user\AppData\Local\Programs\Python\Python312\python.exe" c:\Users\user\Desktop\1minit\_cmdline.py
+---
+
+err_len=0

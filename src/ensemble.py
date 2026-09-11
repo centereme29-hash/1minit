@@ -11,7 +11,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.params import MODELS_DIR  # noqa: E402
+from src.params import CLASS_NAMES, MODELS_DIR  # noqa: E402
 from src.baselines import MLP, predict_proba  # noqa: E402
 
 
@@ -23,7 +23,7 @@ def load_models() -> dict:
     scaler = joblib.load(MODELS_DIR / "mlp_scaler.joblib")
     in_dim = int(getattr(scaler, "n_features_in_", 53))
     net = MLP(in_dim=in_dim)
-    net.load_state_dict(torch.load(MODELS_DIR / "mlp.pt", map_location="cpu"))
+    net.load_state_dict(torch.load(MODELS_DIR / "mlp.pt", map_location="cpu", weights_only=True))
     net.eval()
     models["mlp"] = (net, scaler)
     return models
@@ -40,3 +40,31 @@ def ensemble_proba(models: dict, X: np.ndarray, weights: dict | None = None) -> 
 def ensemble_predict(models: dict, X: np.ndarray, weights: dict | None = None) -> tuple[np.ndarray, np.ndarray]:
     probs = ensemble_proba(models, X, weights)
     return probs.argmax(axis=1), probs.max(axis=1)
+
+
+def load_transformer_predictor():
+    """Load the trained multi-timeframe transformer (if present)."""
+    from src.train import TransformerPredictor  # local import avoids a cycle
+    return TransformerPredictor.from_disk()
+
+
+def gated_action(probs: np.ndarray, gate: float) -> tuple[np.ndarray, np.ndarray]:
+    """Map direction probabilities to LONG / SHORT / NO_TRADE.
+
+    Works for 2-class (DOWN/UP) and 3-class (DOWN/NO_MOVE/UP).  Emits NO_TRADE
+    when confidence < gate or the argmax class is NO_MOVE (3-class only).
+    """
+    conf = probs.max(axis=1)
+    pred = probs.argmax(axis=1)
+    actions: list[str] = []
+    for p, c in zip(pred, conf):
+        cls = CLASS_NAMES.get(int(p), "")
+        if c < gate or cls == "NO_MOVE":
+            actions.append("NO_TRADE")
+        elif cls == "UP":
+            actions.append("LONG")
+        elif cls == "DOWN":
+            actions.append("SHORT")
+        else:
+            actions.append("NO_TRADE")
+    return np.asarray(actions), conf

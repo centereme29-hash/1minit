@@ -1,0 +1,7 @@
+c:\Users\user\Desktop\1minit\data\raw\BTCUSDT\BTCUSDT_1m.csv: 60136 bytes
+c:\Users\user\Desktop\1minit\data\raw\DOGEUSDT\DOGEUSDT_1m.csv: 70112272 bytes
+c:\Users\user\Desktop\1minit\data\raw\XAUTUSDT\XAUTUSDT_1m.csv: 52723 bytes
+---
+BTCUSDT_1m.csv: 851 rows, 2026-09-10 02:06:00+00:00 -> 2026-09-11 03:45:00+00:00
+DOGEUSDT_1m.csv: 1051200 rows, 2024-09-11 07:28:00+00:00 -> 2026-09-11 07:27:00+00:00
+XAUTUSDT_1m.csv: 851 rows, 2026-09-10 02:06:00+00:00 -> 2026-09-11 03:45:00+00:00

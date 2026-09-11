@@ -14,7 +14,13 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.params import FEATURES_DIR, TEST_RATIO, TRAIN_RATIO, VAL_RATIO  # noqa: E402
+from src.params import (  # noqa: E402
+    FEATURES_DIR,
+    TEST_RATIO,
+    TRAIN_RATIO,
+    VAL_B_RATIO,
+    VAL_RATIO,
+)
 
 TARGET_COLS = [
     "future_ret_1", "future_ret_2", "future_ret_3", "future_ret_5",
@@ -41,23 +47,23 @@ def build_matrix() -> pd.DataFrame:
 def chrono_split(m: pd.DataFrame, feature_cols: list[str]) -> dict[str, pd.DataFrame]:
     n = len(m)
     train_end = int(n * TRAIN_RATIO)
-    val_end = train_end + int(n * VAL_RATIO)
-
-    train = m.iloc[:train_end]
-    val = m.iloc[train_end:val_end]
-    test = m.iloc[val_end:]
+    val_end = train_end + int(n * VAL_RATIO)          # Validation-A
+    val_b_end = val_end + int(n * VAL_B_RATIO)        # Validation-B
 
     keep = ["time", *feature_cols, *TARGET_COLS]
-    return {
-        "train": train[keep].reset_index(drop=True),
-        "val": val[keep].reset_index(drop=True),
-        "test": test[keep].reset_index(drop=True),
+    splits = {
+        "train": m.iloc[:train_end][keep].reset_index(drop=True),
+        "val": m.iloc[train_end:val_end][keep].reset_index(drop=True),
     }
+    if VAL_B_RATIO > 0 and val_b_end > val_end:
+        splits["val_b"] = m.iloc[val_end:val_b_end][keep].reset_index(drop=True)
+    splits["test"] = m.iloc[val_b_end:][keep].reset_index(drop=True)
+    return splits
 
 
 def main() -> None:
     FEATURES_DIR.mkdir(parents=True, exist_ok=True)
-    print("STEP 11 — chronological 60/20/20 split")
+    print("STEP 11 — chronological split (train / val-a / val-b / test)")
 
     m, feature_cols = build_matrix()
     splits = chrono_split(m, feature_cols)

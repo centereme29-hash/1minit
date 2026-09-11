@@ -1,0 +1,11 @@
+TIME 2026-09-11 15:15:25
+stdout_bytes=35
+stderr_bytes=35
+transformer_exists=False
+transformer_size=-1
+
+=== LAST 120 STDOUT ===
+LAUNCH 2026-09-11T14:54:45.072048
+
+=== LAST 120 STDERR ===
+LAUNCH 2026-09-11T14:54:45.072048

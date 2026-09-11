@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT))
 from src.params import (  # noqa: E402
     FEATURES_DIR,
     MAIN_SYMBOL,
+    NUM_CLASSES,
     SYNC_DIR,
     TARGET_HORIZON,
     TARGET_RETURNS,
@@ -59,10 +60,14 @@ def build_targets(wide: pd.DataFrame) -> pd.DataFrame:
     out["future_ret_5"] = close.shift(-h) / close - 1.0
     out["normalized_move"] = out["future_ret_5"] / atr_pct
 
-    thr = TARGET_THRESHOLD_ATR
-    out["label"] = 0
-    out.loc[out["normalized_move"] > thr, "label"] = 1
-    out.loc[out["normalized_move"] < -thr, "label"] = -1
+    if NUM_CLASSES == 2:
+        # UP vs DOWN only: sign of the 5-minute return (1 = UP, 0 = DOWN).
+        out["label"] = (out["future_ret_5"] > 0).astype(int)
+    else:
+        thr = TARGET_THRESHOLD_ATR
+        out["label"] = 0
+        out.loc[out["normalized_move"] > thr, "label"] = 1
+        out.loc[out["normalized_move"] < -thr, "label"] = -1
 
     # Max / min excursion over the horizon (t+1 .. t+h)
     highs = pd.concat([wide[H].shift(-k) for k in range(1, h + 1)], axis=1)

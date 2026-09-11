@@ -1,0 +1,11 @@
+RC=1
+STDOUT len=0
+
+STDERR len=387
+Get-CimInstance : Invalid query 
+At line:1 char:1
++ Get-CimInstance Win32_Process -Filter "Name=python.exe" | Select-Obje ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Get-CimInstance], CimException
+    + FullyQualifiedErrorId : HRESULT 0x80041017,Microsoft.Management.Infrastructure.CimCmdlets.GetCimInstanceCommand
+ 

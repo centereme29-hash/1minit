@@ -1,0 +1,28 @@
+RC=0
+out_len=428
+
+
+Image Name   : python.exe
+PID          : 11040
+Session Name : Console
+Session#     : 1
+Mem Usage    : 12,336 K
+Status       : Unknown
+User Name    : DESKTOP-7890UM0\user
+CPU Time     : 0:00:00
+Window Title : N/A
+
+Image Name   : python.exe
+PID          : 9060
+Session Name : Console
+Session#     : 1
+Mem Usage    : 9,056 K
+Status       : Unknown
+User Name    : DESKTOP-7890UM0\user
+CPU Time     : 0:00:00
+Window Title : N/A
+
+
+
+
+err_len=0

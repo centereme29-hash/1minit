@@ -22,11 +22,21 @@ from sklearn.preprocessing import StandardScaler
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.params import FEATURES_DIR, MODELS_DIR, NUM_CLASSES, RANDOM_STATE, RESULTS_DIR  # noqa: E402
+from src.params import (  # noqa: E402
+    CLASS_LABELS,
+    CLASS_NAMES,
+    FEATURES_DIR,
+    MODELS_DIR,
+    NUM_CLASSES,
+    RANDOM_STATE,
+    RESULTS_DIR,
+)
 
 # label -> class index (sklearn / xgb / lgb expect 0..K-1)
-LABEL_MAP = {-1: 0, 0: 1, 1: 2}
-CLASS_NAMES = {0: "DOWN", 1: "NO_MOVE", 2: "UP"}
+if NUM_CLASSES == 2:
+    LABEL_MAP = {0: 0, 1: 1}      # label is already 0=DOWN, 1=UP
+else:
+    LABEL_MAP = {-1: 0, 0: 1, 1: 2}
 
 NON_FEATURE = {
     "time", "future_ret_1", "future_ret_2", "future_ret_3", "future_ret_5",
@@ -46,9 +56,12 @@ def load_split(name: str) -> tuple[pd.DataFrame, np.ndarray, np.ndarray, list[st
 def evaluate(name: str, y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     acc = float(accuracy_score(y_true, y_pred))
     p, r, f1, _ = precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0)
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
-    return {"model": name, "accuracy": acc, "precision": float(p), "recall": float(r), "f1": float(f1),
-            "cm_down": int(cm[0].sum()), "cm_nomove": int(cm[1].sum()), "cm_up": int(cm[2].sum())}
+    cm = confusion_matrix(y_true, y_pred, labels=CLASS_LABELS)
+    out = {"model": name, "accuracy": acc, "precision": float(p),
+           "recall": float(r), "f1": float(f1)}
+    for i, lbl in enumerate(CLASS_LABELS):
+        out[f"cm_{CLASS_NAMES[lbl].lower()}"] = int(cm[i].sum())
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -141,13 +154,16 @@ def train_mlp(Xtr, ytr, Xval, yval, epochs: int = 30, batch_size: int = 512):
 
 
 def predict(model, X) -> np.ndarray:
-    """Return predicted class indices for a model (xgb/lgb/mlp-or-tuple)."""
+    """Return 1-D predicted class indices for a model (xgb/lgb/mlp-or-tuple)."""
     if isinstance(model, tuple):  # (MLP, scaler)
         net, scaler = model
         Xs = scaler.transform(X.astype(np.float32))
         with torch.no_grad():
             return net(torch.from_numpy(Xs)).argmax(1).numpy()
-    return model.predict(X)
+    out = np.asarray(model.predict(X))
+    if out.ndim == 2:             # some 2-class xgboost versions return one-hot
+        out = out.argmax(axis=1)
+    return out.ravel()
 
 
 def predict_proba(model, X) -> np.ndarray:

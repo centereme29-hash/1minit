@@ -1,0 +1,52 @@
+# 1minit — central configuration (read by src/params.py).
+# Every value here has a matching default in src/params.py, so a missing key
+# simply falls back to the code default.  Keep this file committed; it is the
+# single source of truth for the GPU-side modelling work.
+
+data:
+  symbols: [DOGEUSDT, BTCUSDT, XAUTUSDT]
+  interval: "1"
+  raw_dir: data/raw
+  micro_dir: data/microstructure
+  features_dir: data/features
+
+target:
+  horizon: 5                # minutes ahead
+  threshold_atr: 0.3        # UP / DOWN / NO-MOVE threshold
+  classes: 2                # 2 = UP/DOWN only, 3 = UP/DOWN/NO-MOVE
+  returns: [1, 2, 3, 5, 10] # regression heads: future returns
+
+split:
+  train: 0.6
+  val_a: 0.2
+  val_b: 0.1
+  test: 0.1
+
+model:
+  d_model: 512
+  layers: 8
+  heads: 8
+  dropout: 0.15
+  lr: 1e-4
+  weight_decay: 0.01
+  seq_len: 30              # 1m branch length (context_len is derived for 5m/15m)
+  branches: {"1m": 30, "5m": 36, "15m": 32}
+
+evolution:
+  population: 100
+  generations: 30
+  topk: 10
+  diversity_corr_threshold: 0.9
+  score_weights:
+    acc: 0.2
+    f1: 0.15
+    precision: 0.15
+    return: 0.15
+    pnl: 0.2
+    calibration: 0.15
+
+trading:
+  fee: 0.001
+  slippage: 0.0002
+  confidence_gate: 0.7
+  capital: 1000.0          # default paper/backtest starting capital

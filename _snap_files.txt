@@ -1,0 +1,10 @@
+time=15:33:07
+_bl_check.txt exists=False
+_bl_direct.log exists=True bytes=0
+_chain_snapshot.txt exists=True bytes=202
+_train.log exists=False
+_backtest.log exists=False
+_eval.log exists=False
+models/transformer.pt exists=False
+results/backtest.csv exists=True bytes=1135
+results/evaluate.json exists=False

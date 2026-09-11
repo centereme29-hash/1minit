@@ -1,0 +1,30 @@
+STEP 1 — Bybit historical 1m downloader
+category=spot  days=730  symbols=['BTCUSDT']
+
+[BTCUSDT] downloading 730 days of 1m candles (2024-09-11 → now) ...
+    [BTCUSDT] page 1: 1000 candles (oldest 2026-09-10 20:32 UTC)
+    [BTCUSDT] page 50: 1000 candles (oldest 2026-08-07 19:52 UTC)
+    [BTCUSDT] page 100: 1000 candles (oldest 2026-07-04 02:32 UTC)
+    [BTCUSDT] page 150: 1000 candles (oldest 2026-05-30 09:12 UTC)
+    [BTCUSDT] page 200: 1000 candles (oldest 2026-04-25 15:52 UTC)
+    [BTCUSDT] page 250: 1000 candles (oldest 2026-03-21 22:32 UTC)
+    [BTCUSDT] page 300: 1000 candles (oldest 2026-02-15 05:12 UTC)
+    [BTCUSDT] page 350: 1000 candles (oldest 2026-01-11 11:52 UTC)
+    [BTCUSDT] page 400: 1000 candles (oldest 2025-12-07 18:32 UTC)
+    [BTCUSDT] page 450: 1000 candles (oldest 2025-11-03 01:12 UTC)
+    [BTCUSDT] page 500: 1000 candles (oldest 2025-09-29 07:52 UTC)
+    [BTCUSDT] page 550: 1000 candles (oldest 2025-08-25 14:32 UTC)
+    [BTCUSDT] page 600: 1000 candles (oldest 2025-07-21 21:12 UTC)
+    [BTCUSDT] page 650: 1000 candles (oldest 2025-06-17 03:52 UTC)
+    [BTCUSDT] page 700: 1000 candles (oldest 2025-05-13 10:32 UTC)
+    [BTCUSDT] page 750: 1000 candles (oldest 2025-04-08 17:12 UTC)
+    [BTCUSDT] page 800: 1000 candles (oldest 2025-03-04 23:52 UTC)
+    [BTCUSDT] page 850: 1000 candles (oldest 2025-01-29 06:32 UTC)
+    [BTCUSDT] page 900: 1000 candles (oldest 2024-12-25 13:12 UTC)
+    [BTCUSDT] page 950: 1000 candles (oldest 2024-11-20 19:52 UTC)
+    [BTCUSDT] page 1000: 1000 candles (oldest 2024-10-17 02:32 UTC)
+    [BTCUSDT] page 1050: 1000 candles (oldest 2024-09-12 09:12 UTC)
+[BTCUSDT] saved 1051200 rows → data\raw\BTCUSDT\BTCUSDT_1m.csv
+    range: 2024-09-11 13:12 UTC → 2026-09-11 13:11 UTC
+
+STEP 1 DONE.

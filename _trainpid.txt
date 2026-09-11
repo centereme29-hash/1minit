@@ -1,0 +1,6 @@
+﻿
+Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName                                                        
+-------  ------    -----      -----     ------     --  -- -----------                                                        
+     18       4      432       2080       0.00  11820   1 powershell                                                         
+
+

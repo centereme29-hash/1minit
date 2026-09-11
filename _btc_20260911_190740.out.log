@@ -1,0 +1,5 @@
+STEP 1 — Bybit historical 1m downloader
+category=spot  days=730  symbols=['BTCUSDT']
+
+[BTCUSDT] downloading 730 days of 1m candles (2024-09-11 → now) ...
+    [BTCUSDT] page 1: 1000 candles (oldest 2026-09-10 20:28 UTC)

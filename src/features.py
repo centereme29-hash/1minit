@@ -15,7 +15,14 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.params import FEATURES_DIR, MAIN_SYMBOL, SYMBOLS, SYNC_DIR  # noqa: E402
+from src.params import (  # noqa: E402
+    FEATURES_DIR,
+    MAIN_SYMBOL,
+    MICRO_DIR,
+    MICRO_FIELDS,
+    SYMBOLS,
+    SYNC_DIR,
+)
 
 C = f"{MAIN_SYMBOL}_close"
 O = f"{MAIN_SYMBOL}_open"
@@ -41,6 +48,36 @@ def _atr(df: pd.DataFrame, h: str, l: str, c: str, period: int = 14) -> pd.Serie
     prev_close = df[c].shift()
     tr = pd.concat([df[h] - df[l], (df[h] - prev_close).abs(), (df[l] - prev_close).abs()], axis=1).max(axis=1)
     return tr.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+
+
+def load_micro_features(time_index: pd.DatetimeIndex) -> pd.DataFrame:
+    """Merge ``data/microstructure/<SYMBOL>_1m_micro.csv`` onto a UTC minute index.
+
+    Each micro column is prefixed ``<SYMBOL>_micro_`` so it never collides with
+    the candle features.  Returns an empty DataFrame (index only) if no micro
+    data has been collected yet, so the pipeline stays runnable without it.
+    """
+    index = pd.DatetimeIndex(pd.to_datetime(time_index, utc=True))
+    frames: list[pd.DataFrame] = []
+    for symbol in SYMBOLS:
+        path = MICRO_DIR / f"{symbol}_1m_micro.csv"
+        if not path.exists():
+            continue
+        df = pd.read_csv(path)
+        if df.empty or "time" not in df.columns:
+            continue
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        df = df.drop_duplicates(subset="time", keep="last").set_index("time")
+        keep = [c for c in MICRO_FIELDS if c in df.columns]
+        if not keep:
+            continue
+        renamed = {c: f"{symbol}_micro_{c}" for c in keep}
+        frames.append(df[keep].rename(columns=renamed))
+
+    if not frames:
+        return pd.DataFrame(index=index)
+    micro = pd.concat(frames, axis=1)
+    return micro.reindex(index)
 
 
 def build_features(wide: pd.DataFrame) -> pd.DataFrame:
@@ -135,6 +172,13 @@ def build_features(wide: pd.DataFrame) -> pd.DataFrame:
     out["btc_up_doge_down"] = ((out["btc_ret_5m"] > 0) & (out["ret_5m"] < -tiny)).astype(int)
     out["btc_down_doge_up"] = ((out["btc_ret_5m"] < 0) & (out["ret_5m"] > tiny)).astype(int)
     out["xaut_up_doge_down"] = ((out["xaut_ret_5m"] > 0) & (out["ret_5m"] < -tiny)).astype(int)
+
+    # --- Microstructure merge (Phase 6A) ------------------------------------
+    micro = load_micro_features(wide["time"])
+    if len(micro.columns):
+        micro = micro.copy()
+        micro.index.name = "time"
+        out = out.merge(micro.reset_index(), on="time", how="left")
 
     return out
 

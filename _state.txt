@@ -1,0 +1,11 @@
+﻿
+FullName                                                         Length LastWriteTime        
+--------                                                         ------ -------------        
+C:\Users\user\Desktop\1minit\data\raw\BTCUSDT_1m_raw.csv          60136 9/11/2026 12:01:17 PM
+C:\Users\user\Desktop\1minit\data\raw\DOGEUSDT_1m_raw.csv         55653 9/11/2026 12:01:17 PM
+C:\Users\user\Desktop\1minit\data\raw\XAUTUSDT_1m_raw.csv         52723 9/11/2026 12:01:18 PM
+C:\Users\user\Desktop\1minit\data\raw\BTCUSDT\BTCUSDT_1m.csv      60136 9/11/2026 12:36:23 PM
+C:\Users\user\Desktop\1minit\data\raw\DOGEUSDT\DOGEUSDT_1m.csv 70112272 9/11/2026 1:36:33 PM 
+C:\Users\user\Desktop\1minit\data\raw\XAUTUSDT\XAUTUSDT_1m.csv    52723 9/11/2026 12:36:23 PM
+
+

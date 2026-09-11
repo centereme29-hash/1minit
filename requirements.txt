@@ -2,3 +2,19 @@ pandas>=2.0
 numpy>=1.24
 requests>=2.31
 plotly>=5.18
+
+# ML / modelling (src/ pipeline)
+scikit-learn>=1.4
+scipy>=1.10
+joblib>=1.3
+pyyaml>=6.0
+xgboost>=2.0
+lightgbm>=4.0
+tqdm>=4.66
+
+# GPU transformer + evolution (install torch separately for your CUDA):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.1
+
+# Microstructure WebSocket collector (6A)
+websockets>=12.0
