@@ -41,6 +41,16 @@ def build_matrix() -> pd.DataFrame:
     feature_cols = [c for c in feats.columns if c != "time"]
     # Drop warm-up / tail rows with missing features or missing targets.
     m = m.dropna(subset=feature_cols + TARGET_COLS).reset_index(drop=True)
+    if len(m) == 0:
+        micro_cols = [c for c in feature_cols if "_micro_" in c]
+        raise RuntimeError(
+            "dataset is empty after NaN-drop. This usually means sparse "
+            "microstructure features are being merged but cover only a few minutes, "
+            f"so every historical row has NaN micro columns ({len(micro_cols)} micro "
+            "columns present). Either collect more micro data (run "
+            "`python src/microstructure.py` for several days) or clear "
+            "`data/microstructure/` to build the candle-only matrix."
+        )
     return m, feature_cols
 
 

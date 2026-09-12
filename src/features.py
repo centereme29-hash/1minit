@@ -173,6 +173,42 @@ def build_features(wide: pd.DataFrame) -> pd.DataFrame:
     out["btc_down_doge_up"] = ((out["btc_ret_5m"] < 0) & (out["ret_5m"] > tiny)).astype(int)
     out["xaut_up_doge_down"] = ((out["xaut_ret_5m"] > 0) & (out["ret_5m"] < -tiny)).astype(int)
 
+    # --- Trend / regime features (BTC + XAUT context, DOGE support) ---------
+    # Multi-timeframe BTC trend (only 1m/5m existed before — this is what lets
+    # the model know whether BTC is in an uptrend/downtrend, not just ticking).
+    for h in (3, 10, 15, 30, 60):
+        out[f"btc_ret_{h}m"] = btc_c.pct_change(h, fill_method=None)
+        out[f"xaut_ret_{h}m"] = xaut_c.pct_change(h, fill_method=None)
+
+    # BTC position vs its own trend (regime: "BTC above/below EMA").
+    btc_ema20 = btc_c.ewm(span=20, adjust=False).mean()
+    btc_ema50 = btc_c.ewm(span=50, adjust=False).mean()
+    btc_ema200 = btc_c.ewm(span=200, adjust=False).mean()
+    out["btc_ema_20"] = btc_c / btc_ema20 - 1.0
+    out["btc_ema_50"] = btc_c / btc_ema50 - 1.0
+    out["btc_ema_200"] = btc_c / btc_ema200 - 1.0
+    out["btc_ema_cross_20_50"] = (btc_ema20 - btc_ema50) / btc_c
+    out["btc_ema20_slope"] = btc_ema20.pct_change(15, fill_method=None)
+    out["btc_below_ema20"] = (btc_c < btc_ema20).astype(int)
+    out["btc_below_ema50"] = (btc_c < btc_ema50).astype(int)
+
+    # "Broke support / resistance" — distance from the rolling N-bar low/high.
+    # Negative means the asset has broken below its recent range (support break).
+    for w in (30, 60):
+        btc_low = btc_c.rolling(w, min_periods=w).min()
+        btc_high = btc_c.rolling(w, min_periods=w).max()
+        out[f"btc_dist_low_{w}"] = btc_c / btc_low - 1.0
+        out[f"btc_dist_high_{w}"] = btc_c / btc_high - 1.0
+
+        doge_low = close.rolling(w, min_periods=w).min()
+        doge_high = close.rolling(w, min_periods=w).max()
+        out[f"doge_dist_low_{w}"] = close / doge_low - 1.0
+        out[f"doge_dist_high_{w}"] = close / doge_high - 1.0
+
+    # DOGE relative strength vs BTC at longer horizons (risk-on/off divergence).
+    for h in (15, 30, 60):
+        out[f"doge_btc_{h}m"] = out[f"ret_{h}m"] - out[f"btc_ret_{h}m"]
+
     # --- Microstructure merge (Phase 6A) ------------------------------------
     micro = load_micro_features(wide["time"])
     if len(micro.columns):

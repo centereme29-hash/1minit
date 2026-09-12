@@ -49,7 +49,7 @@ python src/pipeline.py
 | download | `src/download_bybit.py` | bulk 1m history (resumable, backward pagination) |
 | clean   | `src/clean_data.py` | dedupe + OHLC sanity + gap detection (no interpolation) |
 | sync    | `src/synchronize.py` | shared UTC minute index (wide table) |
-| features| `src/features.py` | 53 candle/cross-asset/multi-timeframe features + micro merge |
+| features| `src/features.py` | 81 candle/cross-asset/multi-timeframe/trend features + micro merge |
 | targets | `src/targets.py` | volatility-normalized UP/DOWN/NO-MOVE + regression heads |
 | dataset | `src/dataset.py` | chronological train / val-a / val-b / test split |
 | baselines| `src/baselines.py` | XGBoost / LightGBM / MLP |

@@ -166,7 +166,18 @@ def predict(model, X) -> np.ndarray:
     return out.ravel()
 
 
-def predict_proba(model, X) -> np.ndarray:
+def predict_proba(model, X, feature_names: list[str] | None = None) -> np.ndarray:
+    """Return class probabilities for a single model.
+
+    Handles different model types:
+    - Tuple (net, scaler): MLP model
+    - TransformerWrapper: Transformer model (handles feature selection internally)
+    - Sklearn model: XGBoost, LightGBM, etc.
+    """
+    from src.ensemble import TransformerWrapper
+
+    if isinstance(model, TransformerWrapper):
+        return model.predict_proba(X, feature_names)
     if isinstance(model, tuple):
         net, scaler = model
         Xs = scaler.transform(X.astype(np.float32))

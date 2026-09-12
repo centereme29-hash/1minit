@@ -1,0 +1,4 @@
+ALIVE=True
+PID_CHECK="python.exe","1512","Console","1","538,044 K"
+MTIME=Sat Sep 12 15:28:04 2026
+SIZE=4371067

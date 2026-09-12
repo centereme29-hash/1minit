@@ -1,0 +1,9 @@
+﻿Models: ['xgboost', 'lightgbm', 'mlp', 'transformer']
+
+Breakdown (4 models):
+  xgboost: UP 55%
+  lightgbm: UP 55%
+  mlp: DOWN 100%
+  transformer: DOWN 50%
+
+Γ£ô All 4 models are showing!

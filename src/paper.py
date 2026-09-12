@@ -32,7 +32,7 @@ from src.params import (  # noqa: E402
     TARGET_HORIZON,
 )
 from src.features import build_features  # noqa: E402
-from src.ensemble import ensemble_predict, gated_action, load_models  # noqa: E402
+from src.ensemble import ensemble_proba, ensemble_predict, gated_action, load_models  # noqa: E402
 from src.live import fetch_wide  # noqa: E402
 
 COST = 2.0 * (FEE_RATE + SLIPPAGE)
@@ -86,8 +86,8 @@ class PaperTrader:
 def latest_features():
     wide = fetch_wide(minutes=500)
     feats = build_features(wide)
-    cols = [c for c in feats.columns if c != "time"]
-    return wide, feats, feats[cols].to_numpy(dtype="float32")
+    cols = [c for c in feats.columns if c != "time" and "_micro_" not in c]
+    return wide, feats, feats[cols].fillna(0.0).to_numpy(dtype="float32")
 
 
 def main() -> None:
@@ -107,8 +107,8 @@ def main() -> None:
 
     if args.once:
         wide, feats, X = latest_features()
-        pred, conf = ensemble_predict(models, X)
-        actions, confs = gated_action(pred, conf, CONFIDENCE_GATE)
+        probs = ensemble_proba(models, X)
+        actions, confs = gated_action(probs, CONFIDENCE_GATE)
         latest_time = wide["time"].iloc[-1]
         price = wide[CLOSE_COL].iloc[-1]
         print(f"bar={latest_time}  close={price}")
@@ -121,8 +121,8 @@ def main() -> None:
     end = time.time() + args.minutes * 60
     while time.time() < end:
         wide, feats, X = latest_features()
-        pred, conf = ensemble_predict(models, X)
-        actions, confs = gated_action(pred, conf, CONFIDENCE_GATE)
+        probs = ensemble_proba(models, X)
+        actions, confs = gated_action(probs, CONFIDENCE_GATE)
         t = wide["time"].iloc[-1]
         price = wide[CLOSE_COL].iloc[-1]
         trader.on_bar(t, price, actions[-1], confs[-1])

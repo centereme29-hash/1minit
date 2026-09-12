@@ -66,10 +66,18 @@ def to_signal(cls_name: str, confidence: float) -> str:
     return "NO TRADE"
 
 
-def per_model_breakdown(models: dict, X_row: np.ndarray) -> list[dict]:
+def per_model_breakdown(models: dict, X_row: np.ndarray, feature_names: list[str] | None = None) -> list[dict]:
+    """Return per-model prediction breakdown.
+
+    Args:
+        models: Dictionary of model name -> model object
+        X_row: Feature matrix (typically single row or small batch)
+        feature_names: Optional list of feature names corresponding to X_row columns.
+                      Required for TransformerWrapper to select correct features.
+    """
     rows = []
     for name, m in models.items():
-        p = predict_proba(m, X_row)[0]
+        p = predict_proba(m, X_row, feature_names=feature_names)[0]
         cls = int(p.argmax())
         rows.append({"model": name, "class": CLASS_NAMES[cls], "confidence": float(p.max())})
     return rows
@@ -223,10 +231,10 @@ def run_once(models: dict, transformer: bool, out: Path, refresh: int | None,
         cls_name, confidence = predict_transformer(feats)
         breakdown = []
     else:
-        cols = [c for c in feats.columns if c != "time"]
+        cols = [c for c in feats.columns if c != "time" and "_micro_" not in c]
         X = feats[cols].fillna(0.0).to_numpy(dtype="float32")
         cls_name, confidence = predict_baseline(feats)
-        breakdown = per_model_breakdown(models, X[-1:])
+        breakdown = per_model_breakdown(models, X[-1:], feature_names=cols)
 
     action = to_signal(cls_name, confidence)
     fig = build_figure(wide, action, confidence, breakdown)

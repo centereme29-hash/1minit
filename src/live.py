@@ -67,9 +67,9 @@ def _align(feats: pd.DataFrame, feature_cols: list[str]) -> np.ndarray:
 
 def predict_baseline(feats: pd.DataFrame) -> tuple[str, float]:
     models = load_models()
-    cols = [c for c in feats.columns if c != "time"]
+    cols = [c for c in feats.columns if c != "time" and "_micro_" not in c]
     X = feats[cols].fillna(0.0).to_numpy(dtype="float32")
-    pred, conf = ensemble_predict(models, X)
+    pred, conf = ensemble_predict(models, X, feature_names=cols)
     p, c = int(pred[-1]), float(conf[-1])
     return CLASS_NAMES[p], c
 

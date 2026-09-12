@@ -1,0 +1,6 @@
+Models loaded: ['xgboost', 'lightgbm', 'mlp', 'transformer']
+Total models: 4
+  xgboost: XGBClassifier
+  lightgbm: LGBMClassifier
+  mlp: tuple
+  transformer: TransformerWrapper

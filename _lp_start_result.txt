@@ -1,0 +1,4 @@
+PID=1512
+START_TIME=UNKNOWN
+MTIME=Sat Sep 12 15:28:04 2026
+PID_CHECK="python.exe","1512","Console","1","538,044 K","Unknown","DESKTOP-7890UM0\user","0:00:08","N/A"
